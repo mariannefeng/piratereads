@@ -50,6 +50,19 @@ type reviewsResponse struct {
 // @title           piratereads API
 // @BasePath        /
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func extractBookAnchor(description string) string {
 	start := strings.Index(description, "<a ")
 	if start == -1 {
@@ -173,6 +186,8 @@ func main() {
 		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
+	r.Use(corsMiddleware)
 
 	port := os.Getenv("PORT")
 	if port == "" {
