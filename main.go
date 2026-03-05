@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	_ "github.com/mariannefeng/piratereads/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type goodreadsRSS struct {
@@ -45,6 +47,9 @@ type reviewsResponse struct {
 	Reviews []review `json:"reviews"`
 }
 
+// @title           PirateReads API
+// @BasePath        /
+
 func extractBookAnchor(description string) string {
 	start := strings.Index(description, "<a ")
 	if start == -1 {
@@ -60,95 +65,114 @@ func extractBookAnchor(description string) string {
 	return rest[:endRel+len("</a>")]
 }
 
+// getReviewsHandler godoc
+// @Summary      Get goodreads reviews for a user
+// @Description  Returns a paginated list of reviews
+// @Tags         reviews
+// @Param        username  path   string  true   "goodreads username"
+// @Param        per_page  query  int     false  "number of reviews per page"
+// @Param        page      query  int     false  "page number"
+// @Produce      json
+// @Success      200  {object}  reviewsResponse
+// @Failure      400  {string}  string  "invalid request"
+// @Failure      404  {string}  string  "user not found"
+// @Failure      502  {string}  string  "goodreads error"
+// @Router       /{username}/reviews [get]
+func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	username := vars["username"]
+	if strings.TrimSpace(username) == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	query := r.URL.Query()
+
+	perPage := 100
+	if v := query.Get("per_page"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			http.Error(w, "per_page must be a positive integer", http.StatusBadRequest)
+			return
+		}
+		perPage = n
+	}
+
+	page := 1
+	if v := query.Get("page"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			http.Error(w, "page must be a positive integer", http.StatusBadRequest)
+			return
+		}
+		page = n
+	}
+
+	rssURL := fmt.Sprintf(
+		"https://www.goodreads.com/review/list_rss/%s?shelf=read&per_page=%d&page=%d",
+		username,
+		perPage,
+		page,
+	)
+
+	resp, err := http.Get(rssURL)
+	if err != nil {
+		log.Printf("error fetching goodreads RSS for %q: %v", username, err)
+		http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("unexpected goodreads status for %q: %d", username, resp.StatusCode)
+		http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
+		return
+	}
+
+	var rss goodreadsRSS
+	if err := xml.NewDecoder(resp.Body).Decode(&rss); err != nil {
+		log.Printf("error decoding goodreads RSS for %q: %v", username, err)
+		http.Error(w, "failed to parse reviews", http.StatusBadGateway)
+		return
+	}
+
+	reviews := make([]review, 0, len(rss.Channel.Items))
+	for _, item := range rss.Channel.Items {
+		text := strings.TrimSpace(item.UserReview)
+		bookLink := extractBookAnchor(item.Description)
+		if bookLink == "" {
+			bookLink = item.Link
+		}
+
+		reviews = append(reviews, review{
+			BookTitle:    item.Title,
+			BookAuthor:   item.AuthorName,
+			BookCoverImg: item.BookSmallImage,
+			BookLink:     bookLink,
+			Rating:       item.UserRating,
+			Text:         text,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	respBody := reviewsResponse{
+		Count:   len(reviews),
+		Reviews: reviews,
+	}
+
+	if err := json.NewEncoder(w).Encode(respBody); err != nil {
+		log.Printf("error encoding reviews response: %v", err)
+	}
+}
+
 func main() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/{username}/reviews", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		username := vars["username"]
-		if strings.TrimSpace(username) == "" {
-			http.NotFound(w, r)
-			return
-		}
-
-		query := r.URL.Query()
-
-		perPage := 100
-		if v := query.Get("per_page"); v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil || n <= 0 {
-				http.Error(w, "per_page must be a positive integer", http.StatusBadRequest)
-				return
-			}
-			perPage = n
-		}
-
-		page := 1
-		if v := query.Get("page"); v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil || n <= 0 {
-				http.Error(w, "page must be a positive integer", http.StatusBadRequest)
-				return
-			}
-			page = n
-		}
-
-		rssURL := fmt.Sprintf(
-			"https://www.goodreads.com/review/list_rss/%s?shelf=read&per_page=%d&page=%d",
-			username,
-			perPage,
-			page,
-		)
-
-		resp, err := http.Get(rssURL)
-		if err != nil {
-			log.Printf("error fetching Goodreads RSS for %q: %v", username, err)
-			http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			log.Printf("unexpected Goodreads status for %q: %d", username, resp.StatusCode)
-			http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
-			return
-		}
-
-		var rss goodreadsRSS
-		if err := xml.NewDecoder(resp.Body).Decode(&rss); err != nil {
-			log.Printf("error decoding Goodreads RSS for %q: %v", username, err)
-			http.Error(w, "failed to parse reviews", http.StatusBadGateway)
-			return
-		}
-
-		reviews := make([]review, 0, len(rss.Channel.Items))
-		for _, item := range rss.Channel.Items {
-			text := strings.TrimSpace(item.UserReview)
-			bookLink := extractBookAnchor(item.Description)
-			if bookLink == "" {
-				bookLink = item.Link
-			}
-
-			reviews = append(reviews, review{
-				BookTitle:    item.Title,
-				BookAuthor:   item.AuthorName,
-				BookCoverImg: item.BookSmallImage,
-				BookLink:     bookLink,
-				Rating:       item.UserRating,
-				Text:         text,
-			})
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		respBody := reviewsResponse{
-			Count:   len(reviews),
-			Reviews: reviews,
-		}
-
-		if err := json.NewEncoder(w).Encode(respBody); err != nil {
-			log.Printf("error encoding reviews response: %v", err)
-		}
-	}).Methods(http.MethodGet)
+	r.HandleFunc("/{username}/reviews", getReviewsHandler).Methods(http.MethodGet)
+	r.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
+	})
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
