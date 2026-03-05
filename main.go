@@ -31,6 +31,7 @@ type goodreadsItem struct {
 	UserRating     int    `xml:"user_rating"`
 	UserReview     string `xml:"user_review"`
 	Description    string `xml:"description"`
+	PubDate        string `xml:"pubDate"`
 }
 
 type review struct {
@@ -40,6 +41,7 @@ type review struct {
 	BookLink     string `json:"book_link"`
 	Rating       int    `json:"rating"`
 	Text         string `json:"text"`
+	PublishedOn  string `json:"publishedOn"`
 }
 
 type reviewsResponse struct {
@@ -156,7 +158,6 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 		if bookLink == "" {
 			bookLink = item.Link
 		}
-
 		reviews = append(reviews, review{
 			BookTitle:    item.Title,
 			BookAuthor:   item.AuthorName,
@@ -164,6 +165,7 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 			BookLink:     bookLink,
 			Rating:       item.UserRating,
 			Text:         text,
+			PublishedOn:  strings.TrimSpace(item.PubDate),
 		})
 	}
 
