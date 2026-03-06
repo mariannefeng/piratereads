@@ -24,28 +24,30 @@ type goodreadsChannel struct {
 }
 
 type goodreadsItem struct {
-	Title              string `xml:"title"`
-	Link               string `xml:"link"`
-	AuthorName         string `xml:"author_name"`
-	BookSmallImageURL  string `xml:"book_small_image_url"`
-	BookMediumImageURL string `xml:"book_medium_image_url"`
-	BookLargeImageURL  string `xml:"book_large_image_url"`
-	UserRating         int    `xml:"user_rating"`
-	UserReview         string `xml:"user_review"`
-	Description        string `xml:"description"`
-	PubDate            string `xml:"pubDate"`
+	Title              string  `xml:"title"`
+	Link               string  `xml:"link"`
+	AuthorName         string  `xml:"author_name"`
+	BookSmallImageURL  string  `xml:"book_small_image_url"`
+	BookMediumImageURL string  `xml:"book_medium_image_url"`
+	BookLargeImageURL  string  `xml:"book_large_image_url"`
+	UserRating         int     `xml:"user_rating"`
+	AverageRating      float64 `xml:"average_rating"`
+	UserReview         string  `xml:"user_review"`
+	Description        string  `xml:"description"`
+	PubDate            string  `xml:"pubDate"`
 }
 
 type review struct {
-	BookTitle       string `json:"book_title"`
-	BookAuthor      string `json:"book_author"`
-	BookCoverSmall  string `json:"book_cover_small"`
-	BookCoverMedium string `json:"book_cover_medium"`
-	BookCoverLarge  string `json:"book_cover_large"`
-	BookLink        string `json:"book_link"`
-	Rating          int    `json:"rating"`
-	Text            string `json:"text"`
-	PublishedOn     string `json:"published_on"`
+	BookTitle       string  `json:"book_title"`
+	BookAuthor      string  `json:"book_author"`
+	BookCoverSmall  string  `json:"book_cover_small"`
+	BookCoverMedium string  `json:"book_cover_medium"`
+	BookCoverLarge  string  `json:"book_cover_large"`
+	BookLink        string  `json:"book_link"`
+	Rating          int     `json:"rating"`
+	AverageRating   float64 `json:"avg_rating"`
+	Text            string  `json:"text"`
+	PublishedOn     string  `json:"published_on"`
 }
 
 type reviewsResponse struct {
@@ -169,6 +171,7 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 			BookCoverLarge:  item.BookLargeImageURL,
 			BookLink:        bookLink,
 			Rating:          item.UserRating,
+			AverageRating:   item.AverageRating,
 			Text:            text,
 			PublishedOn:     strings.TrimSpace(item.PubDate),
 		})
