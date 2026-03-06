@@ -240,24 +240,6 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 	}
 }
 
-// getReviewsHandler godoc
-//
-//	@Summary		Get goodreads reviews for a user
-//	@Description	Returns a paginated list of reviews
-//	@Tags			reviews
-//	@Param			user_id		path	string	true	"goodreads id"
-//	@Param			per_page	query	int		false	"number of reviews per page"
-//	@Param			page		query	int		false	"page number"
-//	@Produce		json
-//	@Success		200	{object}	shelfResponse
-//	@Failure		400	{string}	string	"invalid request"
-//	@Failure		404	{string}	string	"user not found"
-//	@Failure		502	{string}	string	"goodreads error"
-//	@Router			/{user_id}/reviews [get]
-func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
-	fetchShelfBooks(w, r, "read")
-}
-
 // getReadHandler godoc
 //
 //	@Summary		Get read list for a user
@@ -318,8 +300,6 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-
-	r.HandleFunc("/{user_id}/reviews", getReviewsHandler).Methods(http.MethodGet)
 
 	r.HandleFunc("/{user_id}/read", getReadHandler).Methods(http.MethodGet)
 	r.HandleFunc("/{user_id}/currently-reading", getCurrentlyReadingHandler).Methods(http.MethodGet)
