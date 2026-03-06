@@ -105,7 +105,6 @@ func analyticsMiddleware(client posthog.Client) mux.MiddlewareFunc {
 
 			props := posthog.NewProperties().
 				Set("$ip", ip).
-				Set("$geoip_disable", false).
 				Set("endpoint", r.URL.Path).
 				Set("method", r.Method).
 				Set("status_code", rw.statusCode)
@@ -318,8 +317,11 @@ func main() {
 	r.Use(corsMiddleware)
 
 	if apiKey := os.Getenv("POSTHOG_API_KEY"); apiKey != "" {
+
+		disableGeoIP := false
 		phClient, err := posthog.NewWithConfig(apiKey, posthog.Config{
-			Endpoint: "https://us.i.posthog.com",
+			Endpoint:     "https://us.i.posthog.com",
+			DisableGeoIP: &disableGeoIP,
 		})
 		if err != nil {
 			log.Printf("posthog init error: %v", err)
