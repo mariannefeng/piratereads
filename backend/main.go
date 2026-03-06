@@ -53,10 +53,6 @@ type book struct {
 	Rating            *int    `json:"rating,omitempty"`
 	ReviewText        *string `json:"review_text,omitempty"`
 	ReviewPublishedOn *string `json:"review_published_on,omitempty"`
-
-	// deprecated
-	Text        *string `json:"text,omitempty"`
-	PublishedOn *string `json:"published_on,omitempty"`
 }
 
 type shelfResponse struct {
@@ -229,9 +225,6 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 
 		if shelf == "read" {
 			text := strings.TrimSpace(item.UserReview)
-
-			book.Text = &text
-			book.PublishedOn = &item.PubDate
 
 			book.Rating = &item.UserRating
 			book.ReviewText = &text
