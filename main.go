@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -11,7 +12,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	_ "github.com/mariannefeng/piratereads/docs"
+	posthog "github.com/posthog/posthog-go"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -57,6 +60,53 @@ type reviewsResponse struct {
 
 // @title           piratereads API
 // @BasePath        /
+
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func newResponseWriter(w http.ResponseWriter) *responseWriter {
+	return &responseWriter{w, http.StatusOK}
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func analyticsMiddleware(client posthog.Client) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rw := newResponseWriter(w)
+			next.ServeHTTP(rw, r)
+
+			ip := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0])
+			if ip == "" {
+				ip = r.RemoteAddr
+			}
+			distinctID := fmt.Sprintf("%x", sha256.Sum256([]byte(ip)))
+
+			props := posthog.NewProperties().
+				Set("$ip", ip).
+				Set("endpoint", r.URL.Path).
+				Set("method", r.Method).
+				Set("status_code", rw.statusCode)
+
+			if userID := mux.Vars(r)["user_id"]; userID != "" {
+				props.Set("goodreads_user_id", userID)
+			}
+
+			if err := client.Enqueue(posthog.Capture{
+				DistinctId: distinctID,
+				Event:      "api_request",
+				Properties: props,
+			}); err != nil {
+				log.Printf("posthog enqueue error: %v", err)
+			}
+		})
+	}
+}
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +239,10 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Printf("no .env file found: %v", err)
+	}
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/{user_id}/reviews", getReviewsHandler).Methods(http.MethodGet)
@@ -198,6 +252,18 @@ func main() {
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	r.Use(corsMiddleware)
+
+	if apiKey := os.Getenv("POSTHOG_API_KEY"); apiKey != "" {
+		phClient, err := posthog.NewWithConfig(apiKey, posthog.Config{
+			Endpoint: "https://us.i.posthog.com",
+		})
+		if err != nil {
+			log.Printf("posthog init error: %v", err)
+		} else {
+			defer phClient.Close()
+			r.Use(analyticsMiddleware(phClient))
+		}
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
