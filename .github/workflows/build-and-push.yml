@@ -46,3 +46,10 @@ jobs:
           sbom: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: self-hosted
+    steps:
+      - name: Update containers on server
+        run: ssh -i ${{ secrets.DEPLOY_KEY_PATH }} ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'cd one-server/scripts && ./auto-update.sh'

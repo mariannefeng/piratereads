@@ -24,24 +24,28 @@ type goodreadsChannel struct {
 }
 
 type goodreadsItem struct {
-	Title          string `xml:"title"`
-	Link           string `xml:"link"`
-	AuthorName     string `xml:"author_name"`
-	BookSmallImage string `xml:"book_small_image_url"`
-	UserRating     int    `xml:"user_rating"`
-	UserReview     string `xml:"user_review"`
-	Description    string `xml:"description"`
-	PubDate        string `xml:"pubDate"`
+	Title              string `xml:"title"`
+	Link               string `xml:"link"`
+	AuthorName         string `xml:"author_name"`
+	BookSmallImageURL  string `xml:"book_small_image_url"`
+	BookMediumImageURL string `xml:"book_medium_image_url"`
+	BookLargeImageURL  string `xml:"book_large_image_url"`
+	UserRating         int    `xml:"user_rating"`
+	UserReview         string `xml:"user_review"`
+	Description        string `xml:"description"`
+	PubDate            string `xml:"pubDate"`
 }
 
 type review struct {
-	BookTitle    string `json:"book_title"`
-	BookAuthor   string `json:"book_author"`
-	BookCoverImg string `json:"book_cover_img"`
-	BookLink     string `json:"book_link"`
-	Rating       int    `json:"rating"`
-	Text         string `json:"text"`
-	PublishedOn  string `json:"publishedOn"`
+	BookTitle       string `json:"book_title"`
+	BookAuthor      string `json:"book_author"`
+	BookCoverSmall  string `json:"book_cover_small"`
+	BookCoverMedium string `json:"book_cover_medium"`
+	BookCoverLarge  string `json:"book_cover_large"`
+	BookLink        string `json:"book_link"`
+	Rating          int    `json:"rating"`
+	Text            string `json:"text"`
+	PublishedOn     string `json:"published_on"`
 }
 
 type reviewsResponse struct {
@@ -65,19 +69,18 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func extractBookAnchor(description string) string {
-	start := strings.Index(description, "<a ")
+func extractBookURL(description string) string {
+	const hrefPrefix = `href="`
+	start := strings.Index(description, hrefPrefix)
 	if start == -1 {
 		return ""
 	}
-
-	rest := description[start:]
-	endRel := strings.Index(rest, "</a>")
-	if endRel == -1 {
+	start += len(hrefPrefix)
+	end := strings.Index(description[start:], `"`)
+	if end == -1 {
 		return ""
 	}
-
-	return rest[:endRel+len("</a>")]
+	return description[start : start+end]
 }
 
 // getReviewsHandler godoc
@@ -154,18 +157,20 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 	reviews := make([]review, 0, len(rss.Channel.Items))
 	for _, item := range rss.Channel.Items {
 		text := strings.TrimSpace(item.UserReview)
-		bookLink := extractBookAnchor(item.Description)
+		bookLink := extractBookURL(item.Description)
 		if bookLink == "" {
 			bookLink = item.Link
 		}
 		reviews = append(reviews, review{
-			BookTitle:    item.Title,
-			BookAuthor:   item.AuthorName,
-			BookCoverImg: item.BookSmallImage,
-			BookLink:     bookLink,
-			Rating:       item.UserRating,
-			Text:         text,
-			PublishedOn:  strings.TrimSpace(item.PubDate),
+			BookTitle:       item.Title,
+			BookAuthor:      item.AuthorName,
+			BookCoverSmall:  item.BookSmallImageURL,
+			BookCoverMedium: item.BookMediumImageURL,
+			BookCoverLarge:  item.BookLargeImageURL,
+			BookLink:        bookLink,
+			Rating:          item.UserRating,
+			Text:            text,
+			PublishedOn:     strings.TrimSpace(item.PubDate),
 		})
 	}
 
