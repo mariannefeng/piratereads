@@ -105,6 +105,7 @@ func analyticsMiddleware(client posthog.Client) mux.MiddlewareFunc {
 
 			props := posthog.NewProperties().
 				Set("$ip", ip).
+				Set("$geoip_disable", false).
 				Set("endpoint", r.URL.Path).
 				Set("method", r.Method).
 				Set("status_code", rw.statusCode)
