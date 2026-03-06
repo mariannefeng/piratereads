@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	_ "github.com/mariannefeng/piratereads/docs"
+	_ "github.com/mariannefeng/piratereads/backend/docs"
 	posthog "github.com/posthog/posthog-go"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -40,26 +41,31 @@ type goodreadsItem struct {
 	PubDate            string  `xml:"pubDate"`
 }
 
-type review struct {
+type book struct {
 	BookTitle       string  `json:"book_title"`
 	BookAuthor      string  `json:"book_author"`
 	BookCoverSmall  string  `json:"book_cover_small"`
 	BookCoverMedium string  `json:"book_cover_medium"`
 	BookCoverLarge  string  `json:"book_cover_large"`
 	BookLink        string  `json:"book_link"`
-	Rating          int     `json:"rating"`
 	AverageRating   float64 `json:"avg_rating"`
-	Text            string  `json:"text"`
-	PublishedOn     string  `json:"published_on"`
+
+	Rating            *int    `json:"rating,omitempty"`
+	ReviewText        *string `json:"review_text,omitempty"`
+	ReviewPublishedOn *string `json:"review_published_on,omitempty"`
+
+	// deprecated
+	Text        *string `json:"text,omitempty"`
+	PublishedOn *string `json:"published_on,omitempty"`
 }
 
-type reviewsResponse struct {
-	Count   int      `json:"count"`
-	Reviews []review `json:"reviews"`
+type shelfResponse struct {
+	Count int     `json:"count"`
+	Books []*book `json:"books"`
 }
 
-// @title           piratereads API
-// @BasePath        /
+//	@title		piratereads API
+//	@BasePath	/
 
 type responseWriter struct {
 	http.ResponseWriter
@@ -81,10 +87,20 @@ func analyticsMiddleware(client posthog.Client) mux.MiddlewareFunc {
 			rw := newResponseWriter(w)
 			next.ServeHTTP(rw, r)
 
-			ip := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0])
+			ip := r.Header.Get("CF-Connecting-IP")
+			fmt.Println("ip from cf-connecting-ip", ip)
 			if ip == "" {
-				ip = r.RemoteAddr
+				ip = strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0])
+				fmt.Println("ip from x-forwarded-for", ip)
 			}
+			if ip == "" {
+				host, _, err := net.SplitHostPort(r.RemoteAddr)
+				if err == nil {
+					ip = host
+				}
+				fmt.Println("ip from remote addr", ip)
+			}
+
 			distinctID := fmt.Sprintf("%x", sha256.Sum256([]byte(ip)))
 
 			props := posthog.NewProperties().
@@ -135,20 +151,7 @@ func extractBookURL(description string) string {
 	return description[start : start+end]
 }
 
-// getReviewsHandler godoc
-// @Summary      Get goodreads reviews for a user
-// @Description  Returns a paginated list of reviews
-// @Tags         reviews
-// @Param        user_id  path   string  true   "goodreads id"
-// @Param        per_page  query  int     false  "number of reviews per page"
-// @Param        page      query  int     false  "page number"
-// @Produce      json
-// @Success      200  {object}  reviewsResponse
-// @Failure      400  {string}  string  "invalid request"
-// @Failure      404  {string}  string  "user not found"
-// @Failure      502  {string}  string  "goodreads error"
-// @Router       /{user_id}/reviews [get]
-func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
+func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 	vars := mux.Vars(r)
 	userId := vars["user_id"]
 	if strings.TrimSpace(userId) == "" {
@@ -179,63 +182,141 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rssURL := fmt.Sprintf(
-		"https://www.goodreads.com/review/list_rss/%s?shelf=read&per_page=%d&page=%d",
+		"https://www.goodreads.com/review/list_rss/%s?shelf=%s&per_page=%d&page=%d",
 		userId,
+		shelf,
 		perPage,
 		page,
 	)
 
 	resp, err := http.Get(rssURL)
 	if err != nil {
-		log.Printf("error fetching goodreads RSS for %q: %v", userId, err)
-		http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
+		log.Printf("error fetching goodreads RSS for %q (shelf=%s): %v", userId, shelf, err)
+		http.Error(w, "failed to fetch books", http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("unexpected goodreads status for %q: %d", userId, resp.StatusCode)
-		http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
+		log.Printf("unexpected goodreads status for %q (shelf=%s): %d", userId, shelf, resp.StatusCode)
+		http.Error(w, "failed to fetch books", http.StatusBadGateway)
 		return
 	}
 
 	var rss goodreadsRSS
 	if err := xml.NewDecoder(resp.Body).Decode(&rss); err != nil {
-		log.Printf("error decoding goodreads RSS for %q: %v", userId, err)
-		http.Error(w, "failed to parse reviews", http.StatusBadGateway)
+		log.Printf("error decoding goodreads RSS for %q (shelf=%s): %v", userId, shelf, err)
+		http.Error(w, "failed to parse books", http.StatusBadGateway)
 		return
 	}
 
-	reviews := make([]review, 0, len(rss.Channel.Items))
+	books := make([]*book, 0, len(rss.Channel.Items))
 	for _, item := range rss.Channel.Items {
-		text := strings.TrimSpace(item.UserReview)
 		bookLink := extractBookURL(item.Description)
 		if bookLink == "" {
 			bookLink = item.Link
 		}
-		reviews = append(reviews, review{
+
+		book := &book{
 			BookTitle:       item.Title,
 			BookAuthor:      item.AuthorName,
 			BookCoverSmall:  item.BookSmallImageURL,
 			BookCoverMedium: item.BookMediumImageURL,
 			BookCoverLarge:  item.BookLargeImageURL,
 			BookLink:        bookLink,
-			Rating:          item.UserRating,
 			AverageRating:   item.AverageRating,
-			Text:            text,
-			PublishedOn:     strings.TrimSpace(item.PubDate),
-		})
+		}
+
+		if shelf == "read" {
+			text := strings.TrimSpace(item.UserReview)
+
+			book.Text = &text
+			book.PublishedOn = &item.PubDate
+
+			book.Rating = &item.UserRating
+			book.ReviewText = &text
+			book.ReviewPublishedOn = &item.PubDate
+		}
+
+		books = append(books, book)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	respBody := reviewsResponse{
-		Count:   len(reviews),
-		Reviews: reviews,
+	if err := json.NewEncoder(w).Encode(shelfResponse{Count: len(books), Books: books}); err != nil {
+		log.Printf("error encoding shelf response: %v", err)
 	}
+}
 
-	if err := json.NewEncoder(w).Encode(respBody); err != nil {
-		log.Printf("error encoding reviews response: %v", err)
-	}
+// getReviewsHandler godoc
+//
+//	@Summary		Get goodreads reviews for a user
+//	@Description	Returns a paginated list of reviews
+//	@Tags			reviews
+//	@Param			user_id		path	string	true	"goodreads id"
+//	@Param			per_page	query	int		false	"number of reviews per page"
+//	@Param			page		query	int		false	"page number"
+//	@Produce		json
+//	@Success		200	{object}	shelfResponse
+//	@Failure		400	{string}	string	"invalid request"
+//	@Failure		404	{string}	string	"user not found"
+//	@Failure		502	{string}	string	"goodreads error"
+//	@Router			/{user_id}/reviews [get]
+func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
+	fetchShelfBooks(w, r, "read")
+}
+
+// getReadHandler godoc
+//
+//	@Summary		Get read list for a user
+//	@Description	Returns a paginated list of books
+//	@Tags			shelf
+//	@Param			user_id		path	string	true	"goodreads user id"
+//	@Param			per_page	query	int		false	"number of books per page"
+//	@Param			page		query	int		false	"page number"
+//	@Produce		json
+//	@Success		200	{object}	shelfResponse
+//	@Failure		400	{string}	string	"invalid request"
+//	@Failure		404	{string}	string	"user not found"
+//	@Failure		502	{string}	string	"goodreads error"
+//	@Router			/{user_id}/read [get]
+func getReadHandler(w http.ResponseWriter, r *http.Request) {
+	fetchShelfBooks(w, r, "read")
+}
+
+// getCurrentlyReadingHandler godoc
+//
+//	@Summary		Get currently-reading list for a user
+//	@Description	Returns a paginated list of books the user is currently reading
+//	@Tags			shelf
+//	@Param			user_id		path	string	true	"goodreads user id"
+//	@Param			per_page	query	int		false	"number of books per page"
+//	@Param			page		query	int		false	"page number"
+//	@Produce		json
+//	@Success		200	{object}	shelfResponse
+//	@Failure		400	{string}	string	"invalid request"
+//	@Failure		404	{string}	string	"user not found"
+//	@Failure		502	{string}	string	"goodreads error"
+//	@Router			/{user_id}/currently-reading [get]
+func getCurrentlyReadingHandler(w http.ResponseWriter, r *http.Request) {
+	fetchShelfBooks(w, r, "currently-reading")
+}
+
+// getWantToReadHandler godoc
+//
+//	@Summary		Get want-to-read list for a user
+//	@Description	Returns a paginated list of books the user wants to read
+//	@Tags			shelf
+//	@Param			user_id		path	string	true	"goodreads user id"
+//	@Param			per_page	query	int		false	"number of books per page"
+//	@Param			page		query	int		false	"page number"
+//	@Produce		json
+//	@Success		200	{object}	shelfResponse
+//	@Failure		400	{string}	string	"invalid request"
+//	@Failure		404	{string}	string	"user not found"
+//	@Failure		502	{string}	string	"goodreads error"
+//	@Router			/{user_id}/want-to-read [get]
+func getWantToReadHandler(w http.ResponseWriter, r *http.Request) {
+	fetchShelfBooks(w, r, "to-read")
 }
 
 func main() {
@@ -246,6 +327,11 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/{user_id}/reviews", getReviewsHandler).Methods(http.MethodGet)
+
+	r.HandleFunc("/{user_id}/read", getReadHandler).Methods(http.MethodGet)
+	r.HandleFunc("/{user_id}/currently-reading", getCurrentlyReadingHandler).Methods(http.MethodGet)
+	r.HandleFunc("/{user_id}/want-to-read", getWantToReadHandler).Methods(http.MethodGet)
+
 	r.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})

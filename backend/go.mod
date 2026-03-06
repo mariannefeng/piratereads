@@ -1,4 +1,4 @@
-module github.com/mariannefeng/piratereads
+module github.com/mariannefeng/piratereads/backend
 
 go 1.24.1
 
