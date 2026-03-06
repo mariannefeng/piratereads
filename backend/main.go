@@ -80,6 +80,10 @@ func (rw *responseWriter) WriteHeader(code int) {
 func analyticsMiddleware(client posthog.Client) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for name, values := range r.Header {
+				log.Printf("header: %s = %s", name, strings.Join(values, ", "))
+			}
+
 			rw := newResponseWriter(w)
 			next.ServeHTTP(rw, r)
 
