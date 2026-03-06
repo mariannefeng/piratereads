@@ -95,8 +95,8 @@ func extractBookAnchor(description string) string {
 // @Router       /{user_id}/reviews [get]
 func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	user_id := vars["user_id"]
-	if strings.TrimSpace(user_id) == "" {
+	userId := vars["user_id"]
+	if strings.TrimSpace(userId) == "" {
 		http.NotFound(w, r)
 		return
 	}
@@ -125,28 +125,28 @@ func getReviewsHandler(w http.ResponseWriter, r *http.Request) {
 
 	rssURL := fmt.Sprintf(
 		"https://www.goodreads.com/review/list_rss/%s?shelf=read&per_page=%d&page=%d",
-		user_id,
+		userId,
 		perPage,
 		page,
 	)
 
 	resp, err := http.Get(rssURL)
 	if err != nil {
-		log.Printf("error fetching goodreads RSS for %q: %v", user_id, err)
+		log.Printf("error fetching goodreads RSS for %q: %v", userId, err)
 		http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("unexpected goodreads status for %q: %d", user_id, resp.StatusCode)
+		log.Printf("unexpected goodreads status for %q: %d", userId, resp.StatusCode)
 		http.Error(w, "failed to fetch reviews", http.StatusBadGateway)
 		return
 	}
 
 	var rss goodreadsRSS
 	if err := xml.NewDecoder(resp.Body).Decode(&rss); err != nil {
-		log.Printf("error decoding goodreads RSS for %q: %v", user_id, err)
+		log.Printf("error decoding goodreads RSS for %q: %v", userId, err)
 		http.Error(w, "failed to parse reviews", http.StatusBadGateway)
 		return
 	}
