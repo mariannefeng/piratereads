@@ -83,25 +83,18 @@ func (rw *responseWriter) WriteHeader(code int) {
 func analyticsMiddleware(client posthog.Client) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for name, values := range r.Header {
-				log.Printf("header: %s = %s", name, strings.Join(values, ", "))
-			}
-
 			rw := newResponseWriter(w)
 			next.ServeHTTP(rw, r)
 
 			ip := r.Header.Get("CF-Connecting-IP")
-			fmt.Println("ip from cf-connecting-ip", ip)
 			if ip == "" {
 				ip = strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0])
-				fmt.Println("ip from x-forwarded-for", ip)
 			}
 			if ip == "" {
 				host, _, err := net.SplitHostPort(r.RemoteAddr)
 				if err == nil {
 					ip = host
 				}
-				fmt.Println("ip from remote addr", ip)
 			}
 
 			distinctID := fmt.Sprintf("%x", sha256.Sum256([]byte(ip)))
