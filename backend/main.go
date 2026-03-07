@@ -63,6 +63,9 @@ type shelfResponse struct {
 //	@title		piratereads API
 //	@BasePath	/
 
+//	@Tag.name			shelf
+//	@Tag.description	Fetch a user's Goodreads shelves
+
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
