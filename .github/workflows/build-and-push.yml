@@ -2,6 +2,8 @@ name: Build and Push Backend Container
 
 on:
   push:
+    paths:
+      - "backend/**"
     branches:
       - main
 

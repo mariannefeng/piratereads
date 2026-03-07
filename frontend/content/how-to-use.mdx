@@ -1,0 +1,78 @@
+---
+title: How to Use
+description: Getting started with the API
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+## Quick Start
+
+<Steps>
+<Step>
+### Find your Goodreads user ID
+
+Go to your [Goodreads profile](https://www.goodreads.com) and look at the URL.
+
+![A screenshot of a goodreads user profile with a circle around the user id in the url](https://assets.mariannefeng.com/portfolio/piratereads/goodreads-username.jpg)
+For example, if your profile URL is:
+
+```
+https://www.goodreads.com/user/show/140474195-marianne
+```
+
+Your user ID is `140474195` — the number before the hyphen.
+
+</Step>
+<Step>
+### Make a GET request
+
+The base URL is `https://api.piratereads.com/{user_id}/{shelf}`.
+
+Pick a shelf endpoint and make a request:
+
+```bash
+curl -X 'GET' \
+  'https://api.piratereads.com/140474195/read'
+```
+
+</Step>
+<Step>
+### Use the response
+
+The API returns JSON with a list of books and a count:
+
+```json
+{
+  "count": 42,
+  "books": [
+    {
+      "book_title": "Dune",
+      "book_author": "Frank Herbert",
+      "book_cover_large": "https://...",
+      "book_cover_medium": "https://...",
+      "book_link": "https://www.goodreads.com/book/show/...",
+      "avg_rating": 4.27,
+      "rating": 5,
+      "review_text": "...",
+      "review_published_on": "2024-01-15"
+    }
+  ]
+}
+```
+
+</Step>
+</Steps>
+
+## Available Endpoints
+
+| Shelf             | Endpoint                           | Description                   |
+| ----------------- | ---------------------------------- | ----------------------------- |
+| Read              | `GET /{user_id}/read`              | Books the user has finished   |
+| Currently Reading | `GET /{user_id}/currently-reading` | Books the user is reading now |
+| Want to Read      | `GET /{user_id}/want-to-read`      | Books on the user's wishlist  |
+
+All endpoints accept an optional `per_page` or `page` query parameters to paginate results:
+
+```bash
+curl 'https://api.piratereads.com/140474195/read?per_page=5&page=2'
+```
