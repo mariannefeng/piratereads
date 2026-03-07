@@ -246,6 +246,7 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 
 // getReadHandler godoc
 //
+//	@ID				get-read
 //	@Summary		Get read list for a user
 //	@Description	Returns a paginated list of books
 //	@Tags			shelf
@@ -264,6 +265,7 @@ func getReadHandler(w http.ResponseWriter, r *http.Request) {
 
 // getCurrentlyReadingHandler godoc
 //
+//	@ID				get-currently-reading
 //	@Summary		Get currently-reading list for a user
 //	@Description	Returns a paginated list of books the user is currently reading
 //	@Tags			shelf
@@ -282,6 +284,7 @@ func getCurrentlyReadingHandler(w http.ResponseWriter, r *http.Request) {
 
 // getWantToReadHandler godoc
 //
+//	@ID				get-want-to-read
 //	@Summary		Get want-to-read list for a user
 //	@Description	Returns a paginated list of books the user wants to read
 //	@Tags			shelf
