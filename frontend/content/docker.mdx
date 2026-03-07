@@ -1,0 +1,63 @@
+---
+title: Docker
+description: Sure why not self-host piratereads
+---
+
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+## Container Registry
+
+The docker image is publicly available on the [GitHub Container Registry](https://github.com/mariannefeng/piratereads/pkgs/container/piratereads).
+
+## Running it
+
+<Tabs items={["Docker", "Docker Compose"]}>
+<Tab value="Docker">
+
+Pull and run the image:
+
+```bash
+docker pull ghcr.io/mariannefeng/piratereads:latest
+
+docker run -d \
+  --name piratereads \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  ghcr.io/mariannefeng/piratereads:latest
+```
+
+The API will be available at `http://localhost:8080`.
+
+</Tab>
+<Tab value="Docker Compose">
+
+Create a `docker-compose.yml`:
+
+```yaml
+services:
+  piratereads:
+    image: ghcr.io/mariannefeng/piratereads:latest
+    container_name: piratereads
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+</Tab>
+</Tabs>
+
+## Pinning a Version
+
+The `latest` tag always points to the most recent build from `main`. To pin to a specific commit, use a tag like `main-<short-sha>`:
+
+```bash
+docker pull ghcr.io/mariannefeng/piratereads:main-bf50781
+```
+
+Available tags can be found on the [package page](https://github.com/mariannefeng/piratereads/pkgs/container/piratereads).
