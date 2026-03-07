@@ -250,8 +250,8 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 // getReadHandler godoc
 //
 //	@ID				get-read
-//	@Summary		Get read list for a user
-//	@Description	Returns a paginated list of books
+//	@Summary		Read list of books
+//	@Description	Returns a paginated list of read books, will include rating and review text if available.
 //	@Tags			shelf
 //	@Param			user_id		path	string	true	"goodreads user id"
 //	@Param			per_page	query	int		false	"number of books per page"
@@ -269,7 +269,7 @@ func getReadHandler(w http.ResponseWriter, r *http.Request) {
 // getCurrentlyReadingHandler godoc
 //
 //	@ID				get-currently-reading
-//	@Summary		Get currently-reading list for a user
+//	@Summary		Currently reading
 //	@Description	Returns a paginated list of books the user is currently reading
 //	@Tags			shelf
 //	@Param			user_id		path	string	true	"goodreads user id"
@@ -288,7 +288,7 @@ func getCurrentlyReadingHandler(w http.ResponseWriter, r *http.Request) {
 // getWantToReadHandler godoc
 //
 //	@ID				get-want-to-read
-//	@Summary		Get want-to-read list for a user
+//	@Summary		Want to read list of books
 //	@Description	Returns a paginated list of books the user wants to read
 //	@Tags			shelf
 //	@Param			user_id		path	string	true	"goodreads user id"
