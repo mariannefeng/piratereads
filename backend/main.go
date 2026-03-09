@@ -61,6 +61,8 @@ type shelfResponse struct {
 }
 
 //	@title		piratereads API
+//	@host		api.piratereads.com
+//	@schemes	https
 //	@BasePath	/
 
 //	@Tag.name			shelf
