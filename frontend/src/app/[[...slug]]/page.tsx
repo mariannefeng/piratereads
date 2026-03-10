@@ -1,18 +1,26 @@
-import { getPageImage, source } from '@/lib/source';
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
-import { notFound } from 'next/navigation';
-import { getMDXComponents } from '@/mdx-components';
-import type { Metadata } from 'next';
-import { createRelativeLink } from 'fumadocs-ui/mdx';
-import { APIPage } from '@/components/api-page';
+import { getPageImage, source } from "@/lib/source";
+import {
+  DocsBody,
+  DocsDescription,
+  DocsPage,
+  DocsTitle,
+} from "fumadocs-ui/layouts/docs/page";
+import { notFound } from "next/navigation";
+import { getMDXComponents } from "@/mdx-components";
+import type { Metadata } from "next";
+import { createRelativeLink } from "fumadocs-ui/mdx";
+import { APIPage } from "@/components/api-page";
 
-export default async function Page(props: PageProps<'/[[...slug]]'>) {
+export default async function Page(props: PageProps<"/[[...slug]]">) {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
   if (page.data._openapi) {
-    const data = page.data as import('fumadocs-core/source').PageData & { getAPIPageProps: () => any; toc: any };
+    const data = page.data as import("fumadocs-core/source").PageData & {
+      getAPIPageProps: () => any;
+      toc: any;
+    };
     return (
       <DocsPage toc={data.toc} full>
         <DocsTitle>{data.title}</DocsTitle>
@@ -45,13 +53,16 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export async function generateMetadata(props: PageProps<'/[[...slug]]'>): Promise<Metadata> {
+export async function generateMetadata(
+  props: PageProps<"/[[...slug]]">,
+): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
   return {
-    title: page.data.title,
+    // @ts-ignore
+    title: page.data.metaTitle ?? page.data.title,
     description: page.data.description,
     openGraph: {
       images: getPageImage(page).url,

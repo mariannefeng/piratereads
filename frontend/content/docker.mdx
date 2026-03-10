@@ -5,11 +5,11 @@ description: Sure why not self-host piratereads
 
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-## Container Registry
+## Docker Image
 
-The docker image is publicly available on the [GitHub Container Registry](https://github.com/mariannefeng/piratereads/pkgs/container/piratereads).
+Docker image is at [ghcr.io/mariannefeng/piratereads](https://github.com/mariannefeng/piratereads/pkgs/container/piratereads).
 
-## Running it
+## Running the container
 
 <Tabs items={["Docker", "Docker Compose"]}>
 <Tab value="Docker">
@@ -25,8 +25,6 @@ docker run -d \
   -p 8080:8080 \
   ghcr.io/mariannefeng/piratereads:latest
 ```
-
-The API will be available at `http://localhost:8080`.
 
 </Tab>
 <Tab value="Docker Compose">
@@ -52,12 +50,4 @@ docker compose up -d
 </Tab>
 </Tabs>
 
-## Pinning a Version
-
-The `latest` tag always points to the most recent build from `main`. To pin to a specific commit, use a tag like `main-<short-sha>`:
-
-```bash
-docker pull ghcr.io/mariannefeng/piratereads:main-bf50781
-```
-
-Available tags can be found on the [package page](https://github.com/mariannefeng/piratereads/pkgs/container/piratereads).
+The API will be available at `http://localhost:8080`.
