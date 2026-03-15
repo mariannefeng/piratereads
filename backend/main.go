@@ -197,7 +197,7 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("unexpected goodreads status for %q (shelf=%s): %d", userId, shelf, resp.StatusCode)
-		http.Error(w, "failed to fetch books", http.StatusBadGateway)
+		http.Error(w, "failed to fetch books", resp.StatusCode)
 		return
 	}
 
