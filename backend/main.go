@@ -226,9 +226,11 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 		}
 
 		if shelf == "read" {
-			text := strings.TrimSpace(item.UserReview)
-
 			book.Rating = &item.UserRating
+		}
+
+		if shelf == "did-not-finish" || shelf == "read" {
+			text := strings.TrimSpace(item.UserReview)
 			book.ReviewText = &text
 			book.ReviewPublishedOn = &item.PubDate
 		}
@@ -259,6 +261,25 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 //	@Router			/{user_id}/read [get]
 func getReadHandler(w http.ResponseWriter, r *http.Request) {
 	fetchShelfBooks(w, r, "read")
+}
+
+// getDNFHandler godoc
+//
+//	@ID				get-dnf
+//	@Summary		DNF list of books
+//	@Description	Returns a paginated list of DNF books, will include review text if available
+//	@Tags			shelf
+//	@Param			user_id		path	string	true	"goodreads user id"
+//	@Param			per_page	query	int		false	"number of books per page"
+//	@Param			page		query	int		false	"page number"
+//	@Produce		json
+//	@Success		200	{object}	shelfResponse
+//	@Failure		400	{string}	string	"invalid request"
+//	@Failure		404	{string}	string	"user not found"
+//	@Failure		502	{string}	string	"goodreads error"
+//	@Router			/{user_id}/dnf [get]
+func getDNFHandler(w http.ResponseWriter, r *http.Request) {
+	fetchShelfBooks(w, r, "did-not-finish")
 }
 
 // getCurrentlyReadingHandler godoc
@@ -309,6 +330,7 @@ func main() {
 	r.HandleFunc("/{user_id}/read", getReadHandler).Methods(http.MethodGet)
 	r.HandleFunc("/{user_id}/currently-reading", getCurrentlyReadingHandler).Methods(http.MethodGet)
 	r.HandleFunc("/{user_id}/want-to-read", getWantToReadHandler).Methods(http.MethodGet)
+	r.HandleFunc("/{user_id}/dnf", getDNFHandler).Methods(http.MethodGet)
 
 	r.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
