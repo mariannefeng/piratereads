@@ -267,7 +267,7 @@ func getReadHandler(w http.ResponseWriter, r *http.Request) {
 //
 //	@ID				get-dnf
 //	@Summary		DNF list of books
-//	@Description	Returns a paginated list of DNF books, will include review text if available
+//	@Description	Returns a paginated list of books the user did not finish, will include review text if available
 //	@Tags			shelf
 //	@Param			user_id		path	string	true	"goodreads user id"
 //	@Param			per_page	query	int		false	"number of books per page"
