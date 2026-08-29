@@ -36,6 +36,7 @@ type goodreadsItem struct {
 	BookLargeImageURL  string  `xml:"book_large_image_url"`
 	UserRating         int     `xml:"user_rating"`
 	AverageRating      float64 `xml:"average_rating"`
+	Isbn               string  `xml:"isbn"`
 	UserReview         string  `xml:"user_review"`
 	Description        string  `xml:"description"`
 	PubDate            string  `xml:"pubDate"`
@@ -47,6 +48,7 @@ type book struct {
 	BookCoverSmall  string  `json:"book_cover_small"`
 	BookCoverMedium string  `json:"book_cover_medium"`
 	BookCoverLarge  string  `json:"book_cover_large"`
+	Isbn            string  `json:"isbn"`
 	BookLink        string  `json:"book_link"`
 	AverageRating   float64 `json:"avg_rating"`
 
@@ -222,6 +224,7 @@ func fetchShelfBooks(w http.ResponseWriter, r *http.Request, shelf string) {
 			BookCoverMedium: item.BookMediumImageURL,
 			BookCoverLarge:  item.BookLargeImageURL,
 			BookLink:        bookLink,
+			Isbn:            item.Isbn,
 			AverageRating:   item.AverageRating,
 		}
 
